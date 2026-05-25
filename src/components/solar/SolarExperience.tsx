@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
 import { SolarScene, SECTIONS } from "./SolarScene";
 import { useFocus, focusStore } from "./focus";
+import { EARTH_SATELLITES } from "./data";
+import type { PlanetData } from "./data";
 
 export function SolarExperience() {
   const progressRef = useRef(0);
@@ -76,23 +78,19 @@ export function SolarExperience() {
         />
       </div>
 
-      {/* HUD top */}
       <header className="fixed top-0 left-0 right-0 z-20 px-6 md:px-10 py-5 flex items-center justify-between text-[11px] tracking-[0.3em] uppercase text-cyan-200/80 mix-blend-screen pointer-events-none">
         <div className="flex items-center gap-3">
           <span className="w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)] animate-pulse" />
-          <span>Solaris · Mission 0142</span>
+          <span>Solaris / Mission 0142</span>
         </div>
         <div className="hidden md:flex items-center gap-6 text-white/60">
           <span>LAT 0.0000</span>
           <span>LON 0.0000</span>
           <span>AU {progressRefLabel(activeIndex).toFixed(2)}</span>
-          {focused && (
-            <span className="text-cyan-200">TGT · {focused.toUpperCase()}</span>
-          )}
+          {focused && <span className="text-cyan-200">TGT / {focused.toUpperCase()}</span>}
         </div>
       </header>
 
-      {/* Mini-map / nav rail (clickable) */}
       <nav className="fixed right-4 md:right-6 top-1/2 -translate-y-1/2 z-30 hidden md:flex flex-col items-end gap-2 pointer-events-auto">
         {SECTIONS.map((s, i) => {
           const active = i === activeIndex;
@@ -113,10 +111,10 @@ export function SolarExperience() {
                 {s.title}
               </span>
               <span
-                className={`block w-2 h-2 rounded-full border transition-all ${
+                className={`block w-2 h-2 rounded-full transition-all ${
                   active
-                    ? "bg-cyan-300 border-cyan-200 shadow-[0_0_10px_rgba(103,232,249,0.9)] scale-125"
-                    : "bg-transparent border-white/40 group-hover:border-white/80"
+                    ? "bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.9)] scale-125"
+                    : "bg-white/25 group-hover:bg-white/60"
                 }`}
               />
             </button>
@@ -124,19 +122,19 @@ export function SolarExperience() {
         })}
       </nav>
 
-      {/* Scroll sections */}
       <div ref={scrollerRef} className="relative z-10 pointer-events-none">
         {SECTIONS.map((s, i) => (
           <section
             key={s.title}
             className="relative min-h-screen w-full flex items-center px-6 md:px-16"
           >
-            {!manual && !focused && <SectionCard index={i} active={i === activeIndex} section={s} />}
+            {!manual && !focused && (
+              <SectionCard index={i} active={i === activeIndex} section={s} />
+            )}
           </section>
         ))}
       </div>
 
-      {/* Focus card (when a body is selected) */}
       <AnimatePresence>
         {focused && (
           <motion.div
@@ -145,29 +143,28 @@ export function SolarExperience() {
             exit={{ opacity: 0, y: 12 }}
             className="fixed left-1/2 -translate-x-1/2 bottom-28 z-30 pointer-events-auto"
           >
-            <div className="flex items-center gap-3 rounded-full border border-cyan-300/40 bg-cyan-300/10 backdrop-blur-xl px-5 py-2.5 text-[10px] tracking-[0.3em] uppercase text-cyan-100 shadow-[0_0_24px_rgba(103,232,249,0.25)]">
+            <div className="flex items-center gap-3 rounded-full bg-cyan-300/10 backdrop-blur-xl px-5 py-2.5 text-[10px] tracking-[0.3em] uppercase text-cyan-100 shadow-[0_0_24px_rgba(103,232,249,0.25)]">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse" />
-              Focused · {focused}
+              Focused / {focused}
               <button
                 onClick={() => setFocused(null)}
                 className="ml-2 text-white/60 hover:text-white transition-colors"
               >
-                Release ✕
+                Release x
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Control panel */}
       <div className="fixed bottom-6 left-6 z-30 flex flex-col gap-2 pointer-events-none">
         <div className="flex flex-wrap gap-2 pointer-events-auto">
           <button
             onClick={() => setManual((m) => !m)}
-            className={`group flex items-center gap-3 rounded-full border px-4 py-2.5 text-[10px] tracking-[0.3em] uppercase backdrop-blur-xl transition-all ${
+            className={`group flex items-center gap-3 rounded-full px-4 py-2.5 text-[10px] tracking-[0.3em] uppercase backdrop-blur-xl transition-all ${
               manual
-                ? "bg-cyan-300/15 border-cyan-300/60 text-cyan-100 shadow-[0_0_20px_rgba(103,232,249,0.35)]"
-                : "bg-white/[0.04] border-white/15 text-white/70 hover:text-white hover:border-white/30"
+                ? "bg-cyan-300/15 text-cyan-100 shadow-[0_0_20px_rgba(103,232,249,0.35)]"
+                : "bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.07]"
             }`}
           >
             <span
@@ -175,20 +172,20 @@ export function SolarExperience() {
                 manual ? "bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.9)]" : "bg-white/40"
               }`}
             />
-            {manual ? "Manual · 360°" : "Free Flight"}
+            {manual ? "Manual / 360 deg" : "Free Flight"}
           </button>
           <button
             onClick={handleReset}
-            className="group flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.04] px-4 py-2.5 text-[10px] tracking-[0.3em] uppercase text-white/70 hover:text-white hover:border-white/30 backdrop-blur-xl transition-all"
+            className="group flex items-center gap-3 rounded-full bg-white/[0.04] px-4 py-2.5 text-[10px] tracking-[0.3em] uppercase text-white/70 hover:text-white hover:bg-white/[0.07] backdrop-blur-xl transition-all"
           >
             <span className="block w-1.5 h-1.5 rounded-full bg-white/50 group-hover:bg-cyan-300 transition-colors" />
             Recenter
           </button>
         </div>
-        <div className="text-[9px] tracking-[0.3em] uppercase text-white/40 pl-4 max-w-[280px] leading-relaxed">
+        <div className="text-[9px] tracking-[0.3em] uppercase text-white/40 pl-4 max-w-[320px] leading-relaxed">
           {manual
-            ? "Drag · Scroll · Right-drag · Click a body to focus"
-            : "Scroll to travel · Click a planet/satellite to focus"}
+            ? "Drag / Scroll / Right-drag / Click any body to focus"
+            : "Scroll to travel / Click planets, moons, satellites, asteroids, or comets"}
         </div>
       </div>
 
@@ -218,7 +215,7 @@ function progressRefLabel(i: number) {
   return [0, 0.39, 0.72, 1.0, 1.52, 5.2, 9.58, 19.2, 30.05, 50, 999][i] ?? 0;
 }
 
-type Section = (typeof SECTIONS)[number] & { planet?: any };
+type Section = (typeof SECTIONS)[number] & { planet?: PlanetData };
 
 function SectionCard({
   index,
@@ -246,7 +243,7 @@ function SectionCard({
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -16, filter: "blur(6px)" }}
             transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            className={`pointer-events-auto max-w-md w-full backdrop-blur-xl bg-white/[0.04] border border-white/10 rounded-2xl p-7 md:p-8 shadow-[0_8px_60px_rgba(80,140,255,0.15)] relative overflow-hidden ${
+            className={`pointer-events-auto max-w-md w-full backdrop-blur-xl bg-white/[0.04] rounded-2xl p-7 md:p-8 shadow-[0_8px_60px_rgba(80,140,255,0.15)] relative overflow-hidden ${
               align === "center" ? "text-center" : ""
             }`}
           >
@@ -265,16 +262,31 @@ function SectionCard({
               {section.planet && (
                 <div className="mt-6 grid grid-cols-3 gap-3">
                   {section.planet.stats.map((s: { label: string; value: string }) => (
-                    <div
-                      key={s.label}
-                      className="rounded-lg bg-white/[0.03] border border-white/10 px-3 py-2"
-                    >
+                    <div key={s.label} className="rounded-lg bg-white/[0.03] px-3 py-2">
                       <div className="text-[9px] tracking-[0.25em] uppercase text-white/40">
                         {s.label}
                       </div>
                       <div className="mt-1 text-sm text-white/90 font-light">{s.value}</div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {section.planet?.name === "Earth" && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {["Moon", ...EARTH_SATELLITES.map((s) => s.name)].map((name) => {
+                    const focusKey = name === "Moon" ? "Earth / Moon" : `Earth / ${name}`;
+
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => focusStore.set(focusKey)}
+                        className="rounded-full bg-cyan-300/10 px-3 py-2 text-[9px] tracking-[0.24em] uppercase text-cyan-100 backdrop-blur-xl transition-colors hover:bg-cyan-300/20 hover:text-white"
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
