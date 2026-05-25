@@ -5,7 +5,6 @@ import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-thr
 import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
 
-
 import { Sun } from "./Sun";
 import { Planet, OrbitLine, FadingLabel } from "./Planet";
 import { AsteroidBelt } from "./AsteroidBelt";
@@ -19,6 +18,12 @@ type Props = {
 };
 
 type Waypoint = { pos: THREE.Vector3; look: THREE.Vector3 };
+type ControlsLike = {
+  target: THREE.Vector3;
+  update?: () => void;
+  addEventListener?: (event: "start", listener: () => void) => void;
+  removeEventListener?: (event: "start", listener: () => void) => void;
+};
 
 function buildWaypoints(): Waypoint[] {
   const wps: Waypoint[] = [];
@@ -50,6 +55,27 @@ function getScrollWaypoint(p: number, wps: Waypoint[]) {
   return { pos, look, planetIndex: i - 1 };
 }
 
+function getLivePlanetWaypoint(index: number) {
+  const planet = PLANETS[index];
+  if (!planet) return null;
+  const obj = focusRegistry.get(planet.name);
+  if (!obj) return null;
+
+  const look = new THREE.Vector3();
+  obj.getWorldPosition(look);
+  const radial = new THREE.Vector3(look.x, 0, look.z);
+  if (radial.lengthSq() < 0.0001) radial.set(0, 0, 1);
+  radial.normalize();
+  const side = new THREE.Vector3(-radial.z, 0, radial.x);
+  const offset = Math.max(planet.radius * 4.6, 3.2);
+  const pos = look
+    .clone()
+    .add(radial.multiplyScalar(offset * 0.95))
+    .add(side.multiplyScalar(offset * 0.3));
+  pos.y += Math.max(planet.radius * 1.5, 1.1);
+  return { pos, look };
+}
+
 function CameraRig({
   progressRef,
   enabled,
@@ -59,7 +85,9 @@ function CameraRig({
   enabled: boolean;
   resetSignal: number;
 }) {
-  const { camera, controls } = useThree() as any;
+  const { camera, controls } = useThree() as ReturnType<typeof useThree> & {
+    controls?: ControlsLike;
+  };
   const wps = useMemo(() => buildWaypoints(), []);
   const currentLook = useRef(new THREE.Vector3(0, 0, 0));
   const [focused] = useFocus();
@@ -76,7 +104,7 @@ function CameraRig({
       controls.update?.();
     }
     focusStore.set(null);
-  }, [resetSignal]);
+  }, [camera, controls, progressRef, resetSignal, wps]);
 
   useFrame(() => {
     // Focus mode overrides everything (works in both manual and cinematic)
@@ -102,7 +130,10 @@ function CameraRig({
     }
 
     if (!enabled) return;
-    const { pos, look } = getScrollWaypoint(progressRef.current, wps);
+    const scrollWp = getScrollWaypoint(progressRef.current, wps);
+    const liveWp = getLivePlanetWaypoint(scrollWp.planetIndex);
+    const pos = liveWp?.pos ?? scrollWp.pos;
+    const look = liveWp?.look ?? scrollWp.look;
     camera.position.lerp(pos, 0.08);
     currentLook.current.lerp(look, 0.08);
     camera.lookAt(currentLook.current);
@@ -245,6 +276,107 @@ function ShootingStars() {
   );
 }
 
+function Comets() {
+  const comets = useMemo(
+    () => [
+      { name: "Comet ISON", radius: 70, speed: 0.09, phase: 0.2, tilt: 0.55 },
+      { name: "Comet Hale-Bopp", radius: 88, speed: 0.065, phase: 2.1, tilt: -0.35 },
+      { name: "Comet Encke", radius: 48, speed: 0.12, phase: 4.2, tilt: 0.22 },
+    ],
+    [],
+  );
+
+  return (
+    <>
+      {comets.map((comet) => (
+        <Comet key={comet.name} {...comet} />
+      ))}
+    </>
+  );
+}
+
+function Comet({
+  name,
+  radius,
+  speed,
+  phase,
+  tilt,
+}: {
+  name: string;
+  radius: number;
+  speed: number;
+  phase: number;
+  tilt: number;
+}) {
+  const ref = useRef<THREE.Group>(null!);
+
+  useEffect(() => {
+    focusRegistry.set(name, ref.current);
+    focusMeta.set(name, { distance: 3.5 });
+    return () => {
+      focusRegistry.delete(name);
+      focusMeta.delete(name);
+    };
+  }, [name]);
+
+  useFrame((state) => {
+    const t = phase + state.clock.elapsedTime * speed * 0.15;
+    const ellipseX = radius;
+    const ellipseZ = radius * 0.42;
+    ref.current.position.set(
+      Math.cos(t) * ellipseX,
+      Math.sin(t * 0.8) * radius * 0.08 + tilt * 12,
+      Math.sin(t) * ellipseZ,
+    );
+    ref.current.lookAt(0, 0, 0);
+  });
+
+  return (
+    <group ref={ref}>
+      <group
+        onClick={(e) => {
+          e.stopPropagation();
+          focusStore.set(name);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <mesh>
+          <sphereGeometry args={[0.22, 24, 24]} />
+          <meshStandardMaterial
+            color="#d8f3ff"
+            emissive="#87d8ff"
+            emissiveIntensity={0.75}
+            roughness={0.55}
+          />
+        </mesh>
+        <mesh position={[0, 0, 1.6]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.75, 3.8, 32, 1, true]} />
+          <meshBasicMaterial
+            color="#9bd8ff"
+            transparent
+            opacity={0.18}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      </group>
+      <FadingLabel
+        offset={0.75}
+        name={name}
+        color="text-sky-200"
+        accent="from-sky-300"
+        nearFade={1.2}
+        farFade={180}
+      />
+    </group>
+  );
+}
+
 function TwinkleStars() {
   const ref = useRef<THREE.Points>(null!);
   const matRef = useRef<THREE.ShaderMaterial>(null!);
@@ -316,7 +448,9 @@ function TwinkleStars() {
 }
 
 function ControlsBridge() {
-  const { controls } = useThree() as any;
+  const { controls } = useThree() as ReturnType<typeof useThree> & {
+    controls?: ControlsLike;
+  };
   useEffect(() => {
     if (!controls) return;
     const onStart = () => focusStore.set(null);
@@ -345,6 +479,7 @@ export function SolarScene({ progressRef, manual, resetSignal }: Props) {
         <Stars radius={500} depth={150} count={9000} factor={5} saturation={0} fade speed={0.6} />
         <TwinkleStars />
         <ShootingStars />
+        <Comets />
 
         <SunBody />
 

@@ -1,5 +1,6 @@
 import { useRef, useMemo, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { PlanetData } from "./data";
@@ -41,7 +42,7 @@ export function Planet({ data, showLabel = true }: Props) {
     if (cloudRef.current) cloudRef.current.rotation.y += 0.0035;
   });
 
-  const handleClick = (e: any) => {
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     focusStore.set(data.name);
   };
@@ -108,7 +109,9 @@ export function Planet({ data, showLabel = true }: Props) {
           />
         </mesh>
 
-        {data.ring && <Ring inner={data.ring.inner} outer={data.ring.outer} color={data.ring.color} />}
+        {data.ring && (
+          <Ring inner={data.ring.inner} outer={data.ring.outer} color={data.ring.color} />
+        )}
         {data.name === "Earth" && <EarthSatellites parentRadius={data.radius} />}
         {data.name === "Earth" && <Moon parentRadius={data.radius} />}
       </group>
@@ -156,7 +159,9 @@ export function FadingLabel({
     <group ref={wrap} position={[0, offset, 0]}>
       <Html center distanceFactor={16} style={{ pointerEvents: "none" }}>
         <div ref={ref} className="select-none transition-opacity duration-200">
-          <div className={`text-[10px] tracking-[0.4em] uppercase ${color} whitespace-nowrap drop-shadow-[0_0_6px_rgba(0,0,0,0.95)]`}>
+          <div
+            className={`text-[10px] tracking-[0.4em] uppercase ${color} whitespace-nowrap drop-shadow-[0_0_6px_rgba(0,0,0,0.95)]`}
+          >
             {name}
           </div>
           <div className={`mx-auto mt-1 h-3 w-px bg-gradient-to-b ${accent} to-transparent`} />
@@ -185,7 +190,7 @@ function Satellite({
 }) {
   const group = useRef<THREE.Group>(null!);
   const phase = useMemo(() => Math.random() * Math.PI * 2, []);
-  const key = `Earth · ${data.name}`;
+  const key = `Earth / ${data.name}`;
 
   useEffect(() => {
     focusRegistry.set(key, group.current);
@@ -223,12 +228,24 @@ function Satellite({
         onPointerOut={() => (document.body.style.cursor = "auto")}
       >
         <boxGeometry args={[data.radius, data.radius * 0.4, data.radius * 0.4]} />
-        <meshStandardMaterial color="#dfe7f5" metalness={0.7} roughness={0.3} emissive="#6ad0ff" emissiveIntensity={0.4} />
+        <meshStandardMaterial
+          color="#dfe7f5"
+          metalness={0.7}
+          roughness={0.3}
+          emissive="#6ad0ff"
+          emissiveIntensity={0.4}
+        />
       </mesh>
       {/* solar panels */}
       <mesh>
         <boxGeometry args={[data.radius * 0.15, data.radius * 0.05, data.radius * 1.8]} />
-        <meshStandardMaterial color="#1a3a6a" metalness={0.9} roughness={0.2} emissive="#3478c8" emissiveIntensity={0.25} />
+        <meshStandardMaterial
+          color="#1a3a6a"
+          metalness={0.9}
+          roughness={0.2}
+          emissive="#3478c8"
+          emissiveIntensity={0.25}
+        />
       </mesh>
       <pointLight color="#9be3ff" intensity={0.25} distance={1.2} />
       <FadingLabel
@@ -254,9 +271,7 @@ function Ring({ inner, outer, color }: { inner: number; outer: number; color: st
     const img = ctx.createImageData(W, 1);
     for (let x = 0; x < W; x++) {
       const t = x / W;
-      const bands =
-        0.5 +
-        0.5 * Math.sin(t * 60 + Math.sin(t * 9.0) * 2.0) * Math.cos(t * 23 + 1.5);
+      const bands = 0.5 + 0.5 * Math.sin(t * 60 + Math.sin(t * 9.0) * 2.0) * Math.cos(t * 23 + 1.5);
       const edge = Math.min(1, t * 6) * Math.min(1, (1 - t) * 6);
       const a = Math.floor(Math.max(0, bands) * edge * 220);
       img.data[x * 4] = 230;
@@ -290,8 +305,19 @@ function Ring({ inner, outer, color }: { inner: number; outer: number; color: st
 }
 
 function Moon({ parentRadius }: { parentRadius: number }) {
-  const ref = useRef<THREE.Mesh>(null!);
+  const ref = useRef<THREE.Group>(null!);
   const phase = useMemo(() => Math.random() * Math.PI * 2, []);
+  const name = "Earth / Moon";
+
+  useEffect(() => {
+    focusRegistry.set(name, ref.current);
+    focusMeta.set(name, { distance: 1.25 });
+    return () => {
+      focusRegistry.delete(name);
+      focusMeta.delete(name);
+    };
+  }, []);
+
   useFrame((s) => {
     const t = phase + s.clock.elapsedTime * 0.8;
     if (ref.current) {
@@ -301,10 +327,30 @@ function Moon({ parentRadius }: { parentRadius: number }) {
     }
   });
   return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.18, 32, 32]} />
-      <meshStandardMaterial color="#bcbcbc" roughness={1} />
-    </mesh>
+    <group ref={ref}>
+      <mesh
+        onClick={(e) => {
+          e.stopPropagation();
+          focusStore.set(name);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        <sphereGeometry args={[0.18, 32, 32]} />
+        <meshStandardMaterial color="#bcbcbc" roughness={1} />
+      </mesh>
+      <FadingLabel
+        offset={0.42}
+        name="Moon"
+        color="text-slate-200"
+        accent="from-slate-300"
+        nearFade={0.8}
+        farFade={45}
+      />
+    </group>
   );
 }
 
