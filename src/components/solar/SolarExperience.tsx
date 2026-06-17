@@ -198,12 +198,12 @@ export function SolarExperience() {
             transition={{ delay: 1.2, duration: 0.8 }}
             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 text-[10px] tracking-[0.4em] uppercase text-white/60 pointer-events-none"
           >
-            <span>Scroll to Engage</span>
+            {/* <span>Scroll to Engage</span>
             <motion.span
               animate={{ y: [0, 6, 0] }}
               transition={{ repeat: Infinity, duration: 1.6 }}
               className="block w-px h-8 bg-gradient-to-b from-cyan-300 to-transparent"
-            />
+            /> */}
           </motion.div>
         )}
       </AnimatePresence>

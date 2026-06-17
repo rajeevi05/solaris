@@ -177,7 +177,7 @@ export const PLANETS: PlanetData[] = [
 
 export const SECTIONS = [
   {
-    title: "Deep Space",
+    title: "Solaris",
     eyebrow: "Prologue",
     body: "Cosmic silence. Drifting dust. The faint glow of a distant star begins to grow.",
   },
